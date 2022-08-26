@@ -8,21 +8,42 @@ import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.client.Invocation.Builder;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class Main {
     private static final Client client = ClientBuilder.newClient();
     private static final WebTarget webTarget = client.target("https://log-workshop-server.herokuapp.com");
 
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
+
+
+    public static class Fnr
+    {
+        public final String value;
+        public Fnr(String value) { this.value= value; }
+
+        @Override
+        public String toString() { return value.substring(0,6)+"*****"; }
+    }
+
     public static void main(
         final String[] args) 
     {
+        log.info("Starter problemkundesjekk");
         final String token = login();
         while (true) {
             for (String fnr : finnPersoner()) {
-                PersonInfo person = hentPerson(token, fnr);
-                long gjeldsgrad = 5 * person.inntekt - person.gjeld;
-                if (gjeldsgrad < 0) {
-                    System.out.println("Problemkunde: " + person.navn + " - " + person.gjeld);
+                try {
+                    PersonInfo person = hentPerson(token, fnr);
+                    long gjeldsgrad = 5 * person.inntekt - person.gjeld;
+                    if (gjeldsgrad < 0) {
+                        //System.out.println("Problemkunde: " + person.navn + " - " + person.gjeld);
+                        log.info("Problemkunde: {} - {}", person.navn, person.gjeld);
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to check fnr: {}, error: {}", new Fnr(fnr), e.getMessage());
                 }
             }
         }
@@ -32,6 +53,9 @@ public class Main {
     {
         final String user = System.getProperty("user", "kantega");
         final String password = System.getProperty("password");
+        if (password == null) {
+            log.error("Password not specified!");
+        }
         return Base64.getEncoder().encodeToString((user + ":" + password).getBytes());
     }
 
